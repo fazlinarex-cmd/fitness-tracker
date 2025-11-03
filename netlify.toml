@@ -1,0 +1,7 @@
+[build]
+  command = "ng build --configuration production"
+  publish = "dist/fitness-tracker"
+
+[[plugins]]
+  package = "@netlify/angular-runtime"
+  inputs = { disabled = true }
