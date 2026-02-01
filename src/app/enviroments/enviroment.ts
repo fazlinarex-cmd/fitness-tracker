@@ -30,5 +30,23 @@ export const environment = {
   storageBucket: "homebased-ladies.firebasestorage.app",
   messagingSenderId: "61604655847",
   appId: "1:61604655847:web:f2db8f83b82616050c2842"
-  }
+  },
+  // Maximum number of users allowed to register. Change this number to allow more/fewer users.
+  maxUsers: 12
 };
+
+// NOTE: Placing a secret in a client-side environment file is insecure.
+// This is provided as a quick development convenience only. For production,
+// implement admin provisioning server-side (Cloud Function) and remove this value.
+// Development-only admin secret. Set to a value you'll enter in the UI when
+// checking "Register as admin". DO NOT keep this in source for production.
+export const ADMIN_SECRET = 'admin1234';
+
+// Development-only admin email. Signing in with this email (and the correct
+// password) will present the admin UI. Do not rely on client-side checks in
+// production; use server-side admin provisioning.
+export const ADMIN_EMAIL = 'fazlinarex@gmail.com';
+
+// Development-only toggle to show dev admin convenience button in the UI.
+// Set to false for production builds.
+export const SHOW_DEV_ADMIN = true;

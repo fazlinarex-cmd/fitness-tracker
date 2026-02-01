@@ -50,6 +50,23 @@
     padding-bottom: 16px;
   }
 
+  /* Small inline spinner used for loading state on Edit buttons */
+  .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(0,0,0,0.15);
+    border-top-color: rgba(0,0,0,0.45);
+    border-radius: 50%;
+    display: inline-block;
+    vertical-align: middle;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+
   .activity-icons {
     display: flex;
     justify-content: center;
@@ -320,148 +337,419 @@
   .warning-message.fade-out {
     animation: fadeOut 0.3s ease-in forwards;
   }
+
+  /* Tab Styling */
+  .auth-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 24px;
+    border-bottom: 2px solid var(--border-color, #ddd);
+  }
+
+  .auth-tabs button {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-color, #666);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 500;
+    border-bottom: 3px solid transparent;
+    transition: all 0.3s ease;
+    margin-bottom: -2px;
+  }
+
+  .auth-tabs button:hover {
+    color: var(--primary, #007bff);
+    background: rgba(0, 123, 255, 0.05);
+  }
+
+  .auth-tabs button.active {
+    color: var(--primary, #007bff);
+    border-bottom-color: var(--primary, #007bff);
+    font-weight: 600;
+  }
 </style>
 
 <main class="main">
-  <form class="fitness-form" (ngSubmit)="onSubmit()">
+  <div class="fitness-form">
     <h1>Home-Based Ladies Tracker</h1>
 
-    <!-- <div class="activity-icons">
-      <div 
-        class="activity-icon" 
-        [class.selected]="userData.activity === 'strength'"
-        (click)="userData.activity = 'strength'"
-        title="Strength Training">
-        <svg viewBox="0 0 24 24">
-          <path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29z"/>
-        </svg>
+
+    <ng-container *ngIf="!currentUser; else signedIn">
+      <div class="auth-tabs">
+        <button [class.active]="activeTab === 'user'" (click)="activeTab = 'user'" type="button">User</button>
+        <button [class.active]="activeTab === 'admin'" (click)="activeTab = 'admin'" type="button">Admin</button>
       </div>
-      <div 
-        class="activity-icon" 
-        [class.selected]="userData.activity === 'yoga'"
-        (click)="userData.activity = 'yoga'"
-        title="Yoga & Stretching">
-        <svg viewBox="0 0 24 24">
-          <path d="M13 2v1.5c0 1.93-1.57 3.5-3.5 3.5S6 5.43 6 3.5V2h7m1-2H5v3.5C5 6.43 7.07 8.5 10 8.5s5-2.07 5-4.5V0M10 10c-1.66 0-3 1.34-3 3v8c0 1.66 1.34 3 3 3s3-1.34 3-3v-8c0-1.66-1.34-3-3-3m0 2c.55 0 1 .45 1 1v8c0 .55-.45 1-1 1s-1-.45-1-1v-8c0-.55.45-1 1-1z"/>
-        </svg>
+
+      <!-- User Sign Up / Sign In Panel -->
+      <div *ngIf="activeTab === 'user'">
+        <div class="form-group">
+          <label for="authEmail">Email</label>
+          <input id="authEmail" name="authEmail" type="email" [(ngModel)]="authEmail" placeholder="you@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="authPassword">Password</label>
+          <input id="authPassword" name="authPassword" type="password" [(ngModel)]="authPassword" placeholder="password" />
+        </div>
+        <div class="form-group">
+          <label for="display">Display name (optional)</label>
+          <input id="display" name="display" type="text" [(ngModel)]="authDisplayName" placeholder="Jane" />
+        </div>
+        <div class="form-group">
+          <label for="age">Age <span style="color:red;">*</span></label>
+          <input id="age" name="age" type="number" [(ngModel)]="authAge" placeholder="e.g. 34" min="1" max="120" required />
+          <div class="input-hint">We use age to estimate your HRmax (220 − age) to warn about unsafe heart rates.</div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="submit-button" (click)="signUp()" type="button">Sign up</button>
+          <button class="submit-button" (click)="signIn()" type="button">Sign in</button>
+        </div>
       </div>
-      <div 
-        class="activity-icon" 
-        [class.selected]="userData.activity === 'cardio'"
-        (click)="userData.activity = 'cardio'"
-        title="Cardio">
-        <svg viewBox="0 0 24 24">
-          <path d="M3,13H5.79L10.1,4.79L11.28,13.75L14.5,9.66L17.83,13H21V11H18.83L16.17,8.34L12.28,13.25L11.72,8.25L6.41,18H3V13Z"/>
-        </svg>
+
+      <!-- Admin Sign In Panel -->
+      <div *ngIf="activeTab === 'admin'">
+        <div class="form-group">
+          <label for="adminEmail">Admin email</label>
+          <input id="adminEmail" name="adminEmail" type="email" [(ngModel)]="adminEmail" placeholder="admin@example.com" />
+        </div>
+        <div class="form-group">
+          <label for="adminPassword">Admin password</label>
+          <input id="adminPassword" name="adminPassword" type="password" [(ngModel)]="adminPassword" placeholder="password" />
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="submit-button" (click)="signInAdmin()" type="button">Sign in as Admin</button>
+        </div>
+        <div class="input-hint">Static admin credentials: <strong>admin</strong> / <strong>admin1234</strong></div>
+        <div *ngIf="showDevAdmin" class="input-hint">Dev admin (alternate): {{ adminDevEmail }} / (use the Admin login above)</div>
       </div>
-    </div> -->
+
+      <!-- Temporary empty Admin landing page (shown immediately after admin sign-in) -->
+      <div *ngIf="isAdmin && showAdminEmptyPage" style="margin-top:18px; padding:24px; border-radius:12px; background:rgba(0,0,0,0.03); text-align:center;">
+        <h2>Admin Page</h2>
+        <p>This is a temporary empty admin landing page.</p>
+        <div style="display:flex; gap:8px; justify-content:center; margin-top:12px;">
+          <button class="submit-button" (click)="openAdminDashboard()" type="button">Open Admin Dashboard</button>
+          <button class="submit-button" (click)="signOut()" type="button">Sign out</button>
+        </div>
+      </div>
+
+      <!-- Full Admin dashboard (open from the temporary landing page) -->
+      <div *ngIf="isAdmin && showAdminDashboard" style="margin-top:18px; padding:24px; border-radius:12px; background:rgba(0,0,0,0.03);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h2 style="margin:0">Admin Dashboard</h2>
+          <div style="display:flex; gap:8px;">
+            <button class="submit-button" (click)="loadUsersForAdmin()" type="button">Refresh users</button>
+            <button class="submit-button" (click)="loadAllSessions()" type="button">View All Sessions</button>
+            <button class="submit-button" (click)="showAdminDashboard = false; showAdminEmptyPage = true;" type="button">Close</button>
+            <button class="submit-button" (click)="signOut()" type="button">Sign out</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:24px; align-items:flex-start;">
+          <div style="flex:1; min-width:240px;">
+            <h3>Users</h3>
+            <div *ngIf="!usersList || usersList.length === 0">No users found. Click "Refresh users".</div>
+            <ul>
+              <li *ngFor="let u of usersList" style="margin-bottom:8px;">
+                <div style="display:flex; justify-content:space-between; gap:8px; align-items:center;">
+                  <div>
+                    <strong>{{ u.email }}</strong>
+                    <div class="input-hint">id: {{ u.id }} {{ u.isAdmin ? '• admin' : '' }}</div>
+                  </div>
+                      <div style="display:flex; gap:8px;">
+                      <button class="submit-button" (click)="viewSessionsFor(u.id)" type="button">View Sessions</button>
+                    </div>
+                  </div>
+
+                  <!-- Inline per-user sessions panel (collapsible) -->
+                  <div *ngIf="sessionsOwner === u.id" style="margin-top:8px; padding:8px; background:#fff; border-radius:6px; border:1px solid #eee;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                      <strong style="margin:0">Sessions</strong>
+                      <div style="display:flex; gap:8px;">
+                        <button class="submit-button" (click)="collapseSessions()" type="button" style="font-size:0.85rem;">Close</button>
+                      </div>
+                    </div>
+                    <div *ngIf="viewedSessions.length === 0" class="input-hint" style="margin-top:8px">No sessions for this user.</div>
+                    <ul style="list-style:none; padding:0; margin-top:8px;">
+                      <li *ngFor="let s of viewedSessions" style="margin-bottom:8px; padding:8px; background:white; border-radius:6px; border:1px solid #ddd;">
+                        <!-- Header / Summary Row (always visible) -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                          <div style="flex:1; cursor:pointer;" (click)="toggleSessionExpand(s.id)">
+                            <strong>Week {{ s.week }} • Session {{ s.sessionNumber || s.session }} • Set {{ s.setNumber || s.set }}</strong>
+                            <div class="input-hint">Intensity: {{ s.intensity }} • Heart Rate: {{ s.heartRate }} bpm</div>
+                            <div class="input-hint">Saved: {{ s.createdAt | date:'short' }}</div>
+                          </div>
+                          <button class="submit-button" (click)="toggleSessionExpand(s.id)" type="button" style="font-size:0.85rem; white-space:nowrap;">{{ expandedSessionId === s.id ? '▼' : '▶' }}</button>
+                        </div>
+                        
+                        <!-- Expanded Details (Edit/Delete/Notes) -->
+                        <div *ngIf="expandedSessionId === s.id" style="margin-top:12px; padding-top:12px; border-top:1px solid #eee;">
+                          <!-- Display mode -->
+                          <div *ngIf="editingSessionId !== s.id">
+                            <div style="margin-bottom:12px;">
+                              <strong style="font-size:0.9rem;">Actions:</strong>
+                              <div style="display:flex; gap:6px; margin-top:6px;">
+                                <button class="submit-button" (click)="startEditSession(s)" type="button" style="font-size:0.85rem;" [disabled]="loadingSessionId === s.id || savingSessionId === s.id || deletingSessionId === s.id">
+                                  <span *ngIf="loadingSessionId === s.id || savingSessionId === s.id" class="spinner" aria-hidden="true"></span>
+                                  <span *ngIf="loadingSessionId !== s.id && savingSessionId !== s.id">Edit</span>
+                                </button>
+                                <button class="submit-button" (click)="deleteSessionForUser(s.id)" type="button" style="font-size:0.85rem; background:#f8d7da; color:#6b0000;" [disabled]="loadingSessionId === s.id || editingSessionId === s.id || savingSessionId === s.id || deletingSessionId === s.id">Delete</button>
+                              </div>
+                            </div>
+                          </div>
+                          <!-- Edit mode -->
+                          <div *ngIf="editingSessionId === s.id">
+                            <strong style="display:block; margin-bottom:8px; font-size:0.9rem;">Edit Session</strong>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+                              <div style="flex:1; min-width:100px;">
+                                <label style="display:block; font-size:0.8rem; margin-bottom:3px;">Intensity</label>
+                                <input type="number" [(ngModel)]="editedSession.intensity" min="1" max="20" style="width:100%; padding:4px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;" />
+                              </div>
+                              <div style="flex:1; min-width:100px;">
+                                <label style="display:block; font-size:0.8rem; margin-bottom:3px;">Heart Rate</label>
+                                <input type="number" [(ngModel)]="editedSession.heartRate" min="30" max="220" style="width:100%; padding:4px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;" />
+                              </div>
+                              <div style="flex:1; min-width:120px;">
+                                <label style="display:block; font-size:0.8rem; margin-bottom:3px;">Notes</label>
+                                <input type="text" [(ngModel)]="editedSession.notes" placeholder="Notes" style="width:100%; padding:4px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;" />
+                              </div>
+                            </div>
+                            <div style="display:flex; gap:6px;">
+                              <button class="submit-button" (click)="saveEditedSession(s.id)" type="button" style="font-size:0.85rem;" [disabled]="savingSessionId === s.id">
+                                <span *ngIf="savingSessionId === s.id" class="spinner" aria-hidden="true"></span>
+                                <span *ngIf="savingSessionId !== s.id">Save</span>
+                              </button>
+                              <button class="submit-button" (click)="cancelEditSession()" type="button" style="font-size:0.85rem; background:#bbb;">Cancel</button>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    </ul>
+                    <div style="margin-top:8px; display:flex; gap:8px;">
+                      <button class="submit-button" (click)="toggleNewSessionForm()" type="button">{{ showNewSessionForm ? 'Cancel' : 'Add Session' }}</button>
+                    </div>
+                    <div *ngIf="showNewSessionForm" style="margin-top:8px; padding:8px; border-radius:6px; background:#fafafa; border:1px solid #eee;">
+                      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                        <input type="number" [(ngModel)]="newSession.week" min="1" placeholder="Week" style="width:80px; padding:6px;" />
+                        <input type="number" [(ngModel)]="newSession.sessionNumber" min="1" placeholder="Session" style="width:80px; padding:6px;" />
+                        <input type="number" [(ngModel)]="newSession.setNumber" min="1" placeholder="Set" style="width:80px; padding:6px;" />
+                        <input type="number" [(ngModel)]="newSession.intensity" min="1" max="20" placeholder="Intensity" style="width:100px; padding:6px;" />
+                        <input type="number" [(ngModel)]="newSession.heartRate" min="30" max="220" placeholder="HR" style="width:100px; padding:6px;" />
+                        <input type="text" [(ngModel)]="newSession.notes" placeholder="Notes" style="flex:1; padding:6px;" />
+                        <button class="submit-button" (click)="createSessionForUser()" type="button" [disabled]="savingSessionId === 'new'"> <span *ngIf="savingSessionId === 'new'" class="spinner"></span> Create</button>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+            </ul>
+          </div>
+
+          <div style="flex:2; min-width:320px;">
+            <div *ngIf="viewedAllSessions && viewedAllSessions.length > 0" style="margin-top:14px;">
+              <h3>All Sessions</h3>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <div>
+                  <button class="submit-button" (click)="prevAllSessionsPage()" [disabled]="allSessionsCursorStack.length === 0" type="button">Prev</button>
+                  <button class="submit-button" (click)="nextAllSessionsPage()" [disabled]="!allSessionsHasMore" type="button">Next</button>
+                </div>
+                <div class="input-hint">Page: {{ allSessionsCursorStack.length + 1 }}</div>
+              </div>
+
+              <ul>
+                <li *ngFor="let s of viewedAllSessions">
+                  <strong>{{ s.userEmail }}</strong> — <strong>Week {{ s.week }}</strong> session: {{ s.sessionNumber || s.session }} set: {{ s.setNumber || s.set }} — intensity: {{ s.intensity }} — HR: {{ s.heartRate }}
+                  <div class="input-hint">Notes: {{ s.notes }} — saved: {{ s.createdAt }}</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
     
-    <div class="form-group">
-      <label for="name">Your Name</label>
-      <input 
-        type="text" 
-        id="name" 
-        name="name" 
-        [(ngModel)]="userData.name" 
-        required
-        placeholder="Enter your name"
-      >
-    </div>
 
-    <!-- <div class="form-group">
-      <label for="activity">Activity Type:</label>
-      <select id="activity" name="activity" [(ngModel)]="userData.activity" required>
-        <option value="">Select your workout</option>
-        <option value="strength">Strength Training</option>
-        <option value="yoga">Yoga & Stretching</option>
-        <option value="cardio">Cardio</option>
-        <option value="hiit">HIIT</option>
-        <option value="bodyweight">Bodyweight Exercise</option>
-      </select>
-    </div> -->
+    <ng-template #signedIn>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div>
+          <strong>Signed in:</strong> {{ currentUser?.email }}
+        </div>
+        <div>
+          <button class="submit-button" (click)="signOut()" type="button">Sign out</button>
+        </div>
+      </div>
 
-    <!-- <div class="form-group">
-      <label for="duration">Workout Duration</label>
-      <input 
-        type="number" 
-        id="duration" 
-        name="duration" 
-        [(ngModel)]="userData.duration" 
-        required
-        min="1"
-        max="180"
-        placeholder="Minutes"
-      >
-      <div class="input-hint">Recommended: 20-60 minutes for most activities</div>
-    </div> -->
+      <!-- Regular User: Training Form -->
+      <ng-container *ngIf="!isAdmin">
+        <!-- Admin request -->
+        <!-- <div style="margin-bottom:12px;">
+          <button class="submit-button" (click)="requestAdmin()" type="button" [disabled]="adminRequestSent">Request Admin Access</button>
+          <div *ngIf="adminRequestSent" class="input-hint">Admin request submitted — an administrator will review it.</div>
+        </div> -->
 
-    <div class="form-group">
-      <label for="intensity">Intensity Level (RPE)</label>
-      <select id="intensity" name="intensity" [(ngModel)]="userData.intensity" required>
-        <option value="">How hard was your workout?</option>
-        <option value="6">6 - Very Easy (Recovery)</option>
-        <option value="8">8 - Easy (Warm Up)</option>
-        <option value="10">10 - Moderate</option>
-        <option value="12">12 - Somewhat Hard</option>
-        <option value="14">14 - Hard</option>
-        <option value="16">16 - Very Hard</option>
-        <option value="18">18 - Extremely Hard</option>
-        <option value="20">20 - Maximum Effort</option>
-      </select>
-      <div class="input-hint">RPE: Rate of Perceived Exertion (6-20 scale)</div>
-    </div>
+        <div class="form-group">
+          <label for="week">Select Week</label>
+          <select id="week" [(ngModel)]="selectedWeek" name="week" (change)="onWeekChange()">
+            <option *ngFor="let w of getWeekRange()" [ngValue]="w" [disabled]="isWeekFullySubmitted(w)">Week {{ w }}</option>
+          </select>
+        </div>
 
-    <!-- <div class="form-group">
-      <label for="heartRate">Heart Rate</label>
-      <input 
-        type="number"
-        id="rpe" 
-        name="rpe" 
-        [(ngModel)]="userData.rpe" 
-        required
-        min="15"
-        max="17"
-        step="1"
-        placeholder="Enter RPE (15-17)"
-      >
-      <div class="input-hint">Scale: 15 (Hard) to 17 (Very Hard)</div>
-    </div> -->
+        <div class="form-group">
+          <label for="session">Select Session</label>
+          <select id="session" name="session" [(ngModel)]="selectedSession" (change)="onSessionChange()">
+            <option *ngFor="let s of getSetRange(getSessionsForWeek(selectedWeek))" [ngValue]="s">Session {{ s }}</option>
+          </select>
+          <div class="input-hint">Sessions this week: {{ getSessionsForWeek(selectedWeek) }}</div>
+        </div>
 
-    <div class="form-group">
-      <label for="heartRate">Heart Rate (% of HRmax)</label>
-      <input 
-        type="number" 
-        id="heartRate" 
-        name="heartRate" 
-        [(ngModel)]="userData.heartRate" 
-        required
-        min="80"
-        max="90"
-        step="1"
-        placeholder="Enter heart rate % (80-90)"
-      >
-      <div class="input-hint">Target: 80-90% of your maximum heart rate</div>
-    </div>
+        <div class="form-group">
+          <label for="set">Select Set</label>
+          <select id="set" name="set" [(ngModel)]="selectedSet">
+            <option *ngFor="let s of getSetRange(getSetsForWeek(selectedWeek))" [ngValue]="s" [disabled]="isSetSubmitted(selectedWeek, s, selectedSession)">Set {{ s }} <span *ngIf="isSetSubmitted(selectedWeek, s, selectedSession)">— Saved</span></option>
+          </select>
+          <div class="input-hint">Sets per session: {{ getSetsForWeek(selectedWeek) }}</div>
+        </div>
 
-    <button type="submit" class="submit-button">
-      Submit Training Data
-    </button>
-  </form>
+        <div class="form-group">
+          <label for="intensity">Intensity (RPE)</label>
+          <select id="intensity" name="intensity" [(ngModel)]="userData.intensity">
+            <option [ngValue]="6">6</option>
+            <option [ngValue]="7">7</option>
+            <option [ngValue]="8">8</option>
+            <option [ngValue]="9">9</option>
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="11">11</option>
+            <option [ngValue]="12">12</option>
+            <option [ngValue]="13">13</option>
+            <option [ngValue]="14">14</option>
+            <option [ngValue]="15">15</option>
+          <option [ngValue]="16">16</option>
+          <option [ngValue]="17">17</option>
+          <option [ngValue]="18">18</option>
+          <option [ngValue]="19">19</option>
+          <option [ngValue]="20">20</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="hr">Heart Rate (% HRmax)</label>
+        <input id="hr" type="number" name="heartRate" [(ngModel)]="userData.heartRate" min="40" max="220" />
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button class="submit-button" (click)="saveSession()" type="button" [disabled]="isSetSubmitted(selectedWeek, selectedSet, selectedSession)">Save Session</button>
+        <button class="submit-button" (click)="onSubmit()" type="button">Quick Validate</button>
+      </div>
+      <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
+        <label style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" [(ngModel)]="saveAllSets" /> Save all sets for this session
+        </label>
+        <div class="input-hint">When checked, the app will record one session document per set for the selected week.</div>
+      </div>
+      </ng-container>
+
+      <!-- Admin Dashboard: Only for admins -->
+      <ng-container *ngIf="isAdmin">
+        <div style="margin-top:24px; padding:20px; border-radius:12px; background:rgba(0,0,0,0.03);">
+          <h2>Admin Dashboard</h2>
+          
+          <div style="display:flex; gap:8px; margin-bottom:16px;">
+            <button class="submit-button" (click)="loadUsersForAdmin()" type="button">Refresh Users</button>
+            <button class="submit-button" (click)="openAdminDashboard()" type="button">Load All Sessions</button>
+            <button class="submit-button" (click)="exportToExcel()" type="button" style="background:#4CAF50;">📥 Export to Excel</button>
+            <button class="submit-button" (click)="connectToGoogleDrive()" type="button" style="background:#1F88E5;" *ngIf="!isGoogleDriveConnected">☁️ Connect Drive</button>
+            <button class="submit-button" (click)="disconnectFromGoogleDrive()" type="button" style="background:#EA4335;" *ngIf="isGoogleDriveConnected">✓ Drive Connected</button>
+          </div>
+
+          <!-- Users List -->
+          <div style="margin-bottom:24px;">
+            <h3>All Users</h3>
+            <div *ngIf="!usersList || usersList.length === 0" class="input-hint">No users found. Click "Refresh Users".</div>
+            <ul style="list-style:none; padding:0; display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:12px;">
+              <li *ngFor="let u of usersList" style="padding:8px; background:white; border-radius:6px; border:1px solid #ddd;">
+                <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
+                  <div style="flex:1;">
+                    <strong>{{ u.email }}</strong>
+                    <div class="input-hint" style="margin-top:4px;">
+                      Age: {{ u.age || 'N/A' }} {{ u.isAdmin ? '• Admin' : '' }}
+                    </div>
+                    <div class="input-hint" style="margin-top:2px;">Joined: {{ u.createdAt | date:'short' }}</div>
+                  </div>
+                  <div style="display:flex; flex-direction:column; gap:4px;">
+                    <button class="submit-button" (click)="viewSessionsFor(u.id)" type="button" style="font-size:0.85rem;">View Sessions</button>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Sessions View -->
+          <div style="margin-top:24px;">
+              <!-- User's Sessions -->
+              <div *ngIf="sessionsOwner">
+                <h3>Sessions for {{ sessionsOwner }}</h3>
+                <div *ngIf="viewedSessions.length === 0" class="input-hint">No sessions for this user.</div>
+                <ul style="list-style:none; padding:0;">
+                  <li *ngFor="let s of viewedSessions" style="margin-bottom:8px; padding:8px; background:white; border-radius:6px; border:1px solid #ddd;">
+                    <strong>Week {{ s.week }} • Session {{ s.sessionNumber || s.session }} • Set {{ s.setNumber || s.set }}</strong>
+                    <div class="input-hint">Intensity: {{ s.intensity }} • Heart Rate: {{ s.heartRate }} bpm</div>
+                    <div class="input-hint">Saved: {{ s.createdAt | date:'short' }}</div>
+                  </li>
+                </ul>
+                <div style="margin-top:8px; display:flex; gap:8px;">
+                  <button class="submit-button" (click)="toggleNewSessionForm()" type="button">{{ showNewSessionForm ? 'Cancel' : 'Add Session' }}</button>
+                </div>
+                <div *ngIf="showNewSessionForm" style="margin-top:8px; padding:8px; border-radius:6px; background:#fafafa; border:1px solid #eee;">
+                  <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                    <input type="number" [(ngModel)]="newSession.week" min="1" placeholder="Week" style="width:80px; padding:6px;" />
+                    <input type="number" [(ngModel)]="newSession.sessionNumber" min="1" placeholder="Session" style="width:80px; padding:6px;" />
+                    <input type="number" [(ngModel)]="newSession.setNumber" min="1" placeholder="Set" style="width:80px; padding:6px;" />
+                    <input type="number" [(ngModel)]="newSession.intensity" min="1" max="20" placeholder="Intensity" style="width:100px; padding:6px;" />
+                    <input type="number" [(ngModel)]="newSession.heartRate" min="30" max="220" placeholder="HR" style="width:100px; padding:6px;" />
+                    <input type="text" [(ngModel)]="newSession.notes" placeholder="Notes" style="flex:1; padding:6px;" />
+                    <button class="submit-button" (click)="createSessionForUser()" type="button" [disabled]="savingSessionId === 'new'"> <span *ngIf="savingSessionId === 'new'" class="spinner"></span> Create</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- All Sessions (Paginated) -->
+              <div *ngIf="viewedAllSessions && viewedAllSessions.length > 0" style="margin-top:24px;">
+                <h3>All Sessions (Paginated)</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                  <div style="display:flex; gap:8px;">
+                    <button class="submit-button" (click)="prevAllSessionsPage()" [disabled]="allSessionsCursorStack.length === 0" type="button">← Prev</button>
+                    <button class="submit-button" (click)="nextAllSessionsPage()" [disabled]="!allSessionsHasMore" type="button">Next →</button>
+                  </div>
+                  <div class="input-hint">Page {{ allSessionsCursorStack.length + 1 }}</div>
+                </div>
+                <ul style="list-style:none; padding:0;">
+                  <li *ngFor="let s of viewedAllSessions" style="margin-bottom:8px; padding:8px; background:white; border-radius:6px; border:1px solid #ddd;">
+                    <div><strong>{{ s.userEmail }}</strong> • Week {{ s.week }} • Session {{ s.sessionNumber || s.session }} • Set {{ s.setNumber || s.set }}</div>
+                    <div class="input-hint">Intensity: {{ s.intensity }} • Heart Rate: {{ s.heartRate }} bpm</div>
+                    <div class="input-hint">Saved: {{ s.createdAt | date:'short' }}</div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+      </ng-container>
+    </ng-template>
+  </div>
 </main>
 
 <!-- Warning Logger -->
 <div class="warning-logger">
-  @for (log of warningLogs(); track log.id) {
-    <div [class]="'warning-message' + (log.type === 'critical' ? ' critical' : '')">
-      <span class="warning-icon">⚠️</span>
-      <div class="warning-content">
-        {{ log.message }}
-      </div>
-      <button 
-        class="warning-close" 
-        (click)="removeWarningLog(log.id)"
-        title="Dismiss"
-      >×</button>
+  <div *ngFor="let log of warningLogs(); let i = index" [class]="'warning-message' + (log.type === 'critical' ? ' critical' : '')">
+    <span class="warning-icon">⚠️</span>
+    <div class="warning-content">
+      {{ log.message }}
     </div>
-  }
+    <button 
+      class="warning-close" 
+      (click)="removeWarningLog(log.id)"
+      title="Dismiss"
+    >×</button>
+  </div>
 </div>
