@@ -707,12 +707,7 @@
           <span *ngIf="hasCriticalHeartRateWarning">🛑 Critical heart rate detected - please input safe values</span>
         </div>
       </div>
-      <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
-        <label style="display:flex; align-items:center; gap:8px;">
-          <input type="checkbox" [(ngModel)]="saveAllSets" /> Save all sets for this session
-        </label>
-        <div class="input-hint">When checked, the app will record one session document per set for the selected week.</div>
-      </div>
+   
       </ng-container>
 
       <!-- Admin Dashboard: Only for admins -->
@@ -724,8 +719,6 @@
             <button class="submit-button" (click)="loadUsersForAdmin()" type="button">Refresh Users</button>
             <button class="submit-button" (click)="openAdminDashboard()" type="button">Load All Sessions</button>
             <button class="submit-button" (click)="exportToExcel()" type="button" style="background:#4CAF50;">📥 Export to Excel</button>
-            <button class="submit-button" (click)="connectToGoogleDrive()" type="button" style="background:#1F88E5;" *ngIf="!isGoogleDriveConnected">☁️ Connect Drive</button>
-            <button class="submit-button" (click)="disconnectFromGoogleDrive()" type="button" style="background:#EA4335;" *ngIf="isGoogleDriveConnected">✓ Drive Connected</button>
           </div>
 
           <!-- Users List -->
