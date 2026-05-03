@@ -59,7 +59,9 @@ export class App {
   // admin dashboard state
   usersList: Array<any> = [];
   viewedSessions: Array<any> = [];
-  sessionsOwner: string | null = null;
+  viewedSessionsGrouped: { [key: string]: Array<any> } = {}; // Grouped by "week-session"
+  sessionsOwner: string | null = null; // userId
+  sessionsOwnerEmail: string | null = null; // user email/name
   // all sessions (admin view)
   viewedAllSessions: Array<any> = [];
   // pagination state for all sessions
@@ -105,6 +107,11 @@ export class App {
   // track which week/session/set combos the current user already saved
   // key format: "week-session-set" e.g. "1-1-2"
   submittedSetKeys = new Set<string>();
+
+  // Track if user has validated heart rate for the current page view
+  public hasValidatedHeartRate = false;
+  // Track if there's an active critical heart rate warning
+  public hasCriticalHeartRateWarning = false;
 
   constructor() {
     // build numericWeeks from the compact weeks ranges
@@ -228,11 +235,19 @@ export class App {
     const sessions = this.getSessionsForWeek(this.selectedWeek);
     if (this.selectedSession > sessions) this.selectedSession = 1;
     this.selectedSet = 1;
+    // Reset validation and clear fields when changing week
+    this.hasValidatedHeartRate = false;
+    this.hasCriticalHeartRateWarning = false;
+    this.clearFormFields();
   }
 
   // called when the user changes session in the UI - reset set selection
   public onSessionChange() {
     this.selectedSet = 1;
+    // Reset validation and clear fields when changing session
+    this.hasValidatedHeartRate = false;
+    this.hasCriticalHeartRateWarning = false;
+    this.clearFormFields();
   }
 
   private selectNextAvailableWeek() {
@@ -253,7 +268,13 @@ export class App {
         }
         if (found) break;
       }
-      if (found) return;
+      if (found) {
+        // Reset validation state whenever week/session/set changes
+        this.hasValidatedHeartRate = false;
+        this.hasCriticalHeartRateWarning = false;
+        this.clearFormFields();
+        return;
+      }
     }
     // if all sets submitted, keep defaults
   }
@@ -281,30 +302,45 @@ export class App {
   }
 
   onSubmit(): void {
-
-    // If we know the user's age, compute HRmax and warn if exceeded
+    // PRIORITY 1: Check heart rate first - if too high, STOP immediately
+    // If we know the user's age, compute HRmax (220 - age)
     if (this.currentUser && typeof this.currentUser.age === 'number') {
       const hrMax = 220 - this.currentUser.age;
       if (this.userData.heartRate > hrMax) {
-        this.addWarningLog('STOP TRAINING IMMEDIATELY! Heart rate is too high!', 'critical');
+        this.addWarningLog('STOP TRAINING IMMEDIATELY! Heart rate is too high! (Expected max: ' + hrMax + '% HRmax, Got: ' + this.userData.heartRate + '%)', 'critical');
         console.error('Critical heart rate detected:', this.userData.heartRate, 'hrMax:', hrMax);
+        // Clear fields and disable save button on critical warning
+        this.clearFormFields();
+        this.hasValidatedHeartRate = false;
+        this.hasCriticalHeartRateWarning = true;
         return;
       }
     } else {
       // fallback static threshold as a last resort
       if (this.userData.heartRate > 195) {
-        this.addWarningLog('STOP TRAINING IMMEDIATELY! Heart rate is too high!', 'critical');
+        this.addWarningLog('STOP TRAINING IMMEDIATELY! Heart rate is too high! (Got: ' + this.userData.heartRate + '%)', 'critical');
         console.error('Critical heart rate detected:', this.userData.heartRate);
+        // Clear fields and disable save button on critical warning
+        this.clearFormFields();
+        this.hasValidatedHeartRate = false;
+        this.hasCriticalHeartRateWarning = true;
         return;
       }
     }
 
+    // PRIORITY 2: Check intensity only if heart rate is safe
     if (this.userData.intensity < 15) {
       this.addWarningLog('Exercise intensity is low. Try to increase your intensity by:\n• Adding more repetitions', 'warning');
       console.warn('Low intensity detected:', this.userData.intensity);
     }
 
-    console.log('Form submitted:', this.userData);
+    // Validation passed - enable save button
+    this.hasValidatedHeartRate = true;
+    this.hasCriticalHeartRateWarning = false;
+
+    const hrMaxDisplay = this.currentUser && typeof this.currentUser.age === 'number' ? (220 - this.currentUser.age) : '195';
+    this.addWarningLog('Heart rate is safe (within ' + hrMaxDisplay + '% HRmax). You can now save the session.', 'warning');
+    console.log('Form validated:', this.userData);
   }
 
   // --- Authentication flow ---
@@ -322,6 +358,10 @@ export class App {
       // attach age locally
       this.currentUser.age = this.authAge;
       this.addWarningLog('Sign up successful. Welcome!', 'warning');
+      // Reset validation state when signing up
+      this.hasValidatedHeartRate = false;
+      this.hasCriticalHeartRateWarning = false;
+      this.clearFormFields();
       await this.loadUserSessions();
     } catch (err: any) {
       this.addWarningLog('Sign up failed: ' + (err.message || err), 'warning');
@@ -343,6 +383,9 @@ export class App {
       this.selectedSession = 1;
       this.selectedSet = 1;
       this.userData.intensity = 10;
+      // Reset validation state (already reset in signUp, but ensure here too)
+      this.hasValidatedHeartRate = false;
+      this.hasCriticalHeartRateWarning = false;
       // leave heartRate as default or you can preset here
       this.addWarningLog('Sample user created and signed in', 'warning');
     } catch (e: any) {
@@ -377,6 +420,10 @@ export class App {
         // still allow admin if email matches
         this.isAdmin = (user.email === ADMIN_EMAIL);
       }
+      // Reset validation state when signing in
+      this.hasValidatedHeartRate = false;
+      this.hasCriticalHeartRateWarning = false;
+      this.clearFormFields();
       // load user's sessions for disabling already-saved options
       await this.loadUserSessions();
     } catch (err: any) {
@@ -403,6 +450,10 @@ export class App {
         this.currentUser = { uid: user.uid, email: user.email || '' };
         this.isAdmin = true;
         this.addWarningLog('Admin signed in successfully', 'warning');
+        // Reset validation state when signing in as admin
+        this.hasValidatedHeartRate = false;
+        this.hasCriticalHeartRateWarning = false;
+        this.clearFormFields();
         await this.loadUsersForAdmin();
       } catch (e) {
         // couldn't find user doc or check admin flag
@@ -420,6 +471,10 @@ export class App {
     try {
       await signOutUser();
       this.currentUser = null;
+      // Reset validation state when signing out
+      this.hasValidatedHeartRate = false;
+      this.hasCriticalHeartRateWarning = false;
+      this.clearFormFields();
       this.addWarningLog('Signed out', 'warning');
     } catch (err: any) {
       this.addWarningLog('Sign out failed: ' + (err.message || err), 'warning');
@@ -436,6 +491,10 @@ export class App {
       this.currentUser = { uid: user.uid, email: user.email || '', age: undefined };
       this.isAdmin = true;
       this.addWarningLog('Signed in as dev admin', 'warning');
+      // Reset validation state when signing in
+      this.hasValidatedHeartRate = false;
+      this.hasCriticalHeartRateWarning = false;
+      this.clearFormFields();
       await this.loadUsersForAdmin();
       await this.loadUserSessions();
       return;
@@ -449,6 +508,10 @@ export class App {
         this.showAdminEmptyPage = true;
         this.showAdminDashboard = false;
         this.addWarningLog('Dev admin account created and signed in', 'warning');
+        // Reset validation state when signing up
+        this.hasValidatedHeartRate = false;
+        this.hasCriticalHeartRateWarning = false;
+        this.clearFormFields();
         await this.loadUsersForAdmin();
         await this.loadUserSessions();
         return;
@@ -542,8 +605,21 @@ export class App {
 
 
   // Save a training session to Firestore for the currently signed-in user
+  private clearFormFields(): void {
+    this.userData.intensity = 10;
+    this.userData.heartRate = 75;
+    this.userData.name = '';
+    this.userData.rpe = 15;
+  }
+
   public async saveSession(): Promise<void> {
     if (!this.currentUser) return this.addWarningLog('Sign in first', 'warning');
+
+    // Require user to validate heart rate first
+    if (!this.hasValidatedHeartRate) {
+      this.addWarningLog('Please click "Quick Validate" first to verify your heart rate before saving.', 'warning');
+      return;
+    }
 
     const payload = {
       week: this.selectedWeek,
@@ -621,23 +697,78 @@ export class App {
       if (this.sessionsOwner === userId && this.viewedSessions.length > 0) {
         // Collapse
         this.sessionsOwner = null;
+        this.sessionsOwnerEmail = null;
         this.viewedSessions = [];
+        this.viewedSessionsGrouped = {};
+        console.log('Sessions panel collapsed');
       } else {
         // Expand/load
+        console.log('Loading sessions for user:', userId);
         this.viewedSessions = await getUserSessions(userId);
+        console.log('Sessions loaded:', this.viewedSessions);
         this.sessionsOwner = userId;
+        
+        // Find user email
+        const user = this.usersList.find(u => u.id === userId);
+        this.sessionsOwnerEmail = user ? (user.email || user.displayName || userId) : userId;
+        
+        // Group sessions by week-session
+        this.groupSessionsByWeekAndSession();
+        
         this.editingSessionId = null;
         this.editedSession = {};
+        
+        if (this.viewedSessions.length === 0) {
+          this.addWarningLog('No sessions found for this user', 'warning');
+        } else {
+          this.addWarningLog('Loaded ' + this.viewedSessions.length + ' sessions', 'warning');
+        }
       }
     } catch (err: any) {
+      console.error('Failed to load sessions:', err);
       this.addWarningLog('Failed to load sessions: ' + (err.message || err), 'warning');
     }
+  }
+
+  // Group sessions by week and session number for better visualization
+  private groupSessionsByWeekAndSession(): void {
+    this.viewedSessionsGrouped = {};
+    for (const session of this.viewedSessions) {
+      const key = `week-${session.week}-session-${session.sessionNumber || session.session}`;
+      if (!this.viewedSessionsGrouped[key]) {
+        this.viewedSessionsGrouped[key] = [];
+      }
+      this.viewedSessionsGrouped[key].push(session);
+    }
+    // Sort each group by set number
+    for (const key in this.viewedSessionsGrouped) {
+      this.viewedSessionsGrouped[key].sort((a, b) => {
+        return (a.setNumber || a.set || 1) - (b.setNumber || b.set || 1);
+      });
+    }
+    console.log('Sessions grouped:', this.viewedSessionsGrouped);
+  }
+
+  // Get sorted keys for grouped sessions
+  public getGroupedSessionKeys(): string[] {
+    return Object.keys(this.viewedSessionsGrouped).sort();
+  }
+
+  // Parse group key to get readable format
+  public getGroupLabel(key: string): string {
+    const match = key.match(/week-(\d+)-session-(\d+)/);
+    if (match) {
+      return `Week ${match[1]} • Session ${match[2]}`;
+    }
+    return key;
   }
 
   // Collapse sessions panel
   public collapseSessions(): void {
     this.sessionsOwner = null;
+    this.sessionsOwnerEmail = null;
     this.viewedSessions = [];
+    this.viewedSessionsGrouped = {};
     this.editingSessionId = null;
     this.editedSession = {};
     this.expandedSessionId = null;
@@ -835,6 +966,10 @@ export class App {
   public async exportToExcel(): Promise<void> {
     try {
       this.addWarningLog('Preparing export...', 'warning');
+      
+      // Reload users to ensure we have the latest data (including newly signed-up users)
+      await this.loadUsersForAdmin();
+      
       const workbook = XLSX.utils.book_new();
 
       // Create a summary sheet with all users

@@ -254,6 +254,21 @@
     transform: translateY(1px);
   }
 
+  .submit-button:disabled {
+    background: #cccccc;
+    color: #666666;
+    cursor: not-allowed;
+    opacity: 0.6;
+    box-shadow: none;
+    transform: none;
+  }
+
+  .submit-button:disabled:hover {
+    background: #cccccc;
+    transform: none;
+    box-shadow: none;
+  }
+
   .warning-logger {
     position: fixed;
     top: 24px;
@@ -421,7 +436,7 @@
         <div style="display:flex; gap:8px;">
           <button class="submit-button" (click)="signInAdmin()" type="button">Sign in as Admin</button>
         </div>
-        <div class="input-hint">Static admin credentials: <strong>admin</strong> / <strong>admin1234</strong></div>
+        <div class="input-hint">Static admin credentials: <strong></strong> / <strong></strong></div>
         <div *ngIf="showDevAdmin" class="input-hint">Dev admin (alternate): {{ adminDevEmail }} / (use the Admin login above)</div>
       </div>
 
@@ -463,82 +478,121 @@
                     </div>
                   </div>
 
-                  <!-- Inline per-user sessions panel (collapsible) -->
-                  <div *ngIf="sessionsOwner === u.id" style="margin-top:8px; padding:8px; background:#fff; border-radius:6px; border:1px solid #eee;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                      <strong style="margin:0">Sessions</strong>
-                      <div style="display:flex; gap:8px;">
-                        <button class="submit-button" (click)="collapseSessions()" type="button" style="font-size:0.85rem;">Close</button>
+                  <!-- Inline per-user sessions panel (collapsible) - NEW DESIGN -->
+                  <div *ngIf="sessionsOwner === u.id" style="margin-top:12px; padding:16px; background:linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%); border-radius:10px; border:2px solid var(--primary); box-shadow:0 4px 12px rgba(255,128,171,0.15);">
+                    
+                    <!-- Header with User Info -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding-bottom:14px; border-bottom:2px solid var(--primary);">
+                      <div>
+                        <strong style="font-size:1.3rem; color:var(--gray-900);">👤 {{ sessionsOwnerEmail }}</strong>
+                        <div class="input-hint" style="margin-top:6px; margin-bottom:0; font-size:0.9rem;">📊 Session History</div>
+                      </div>
+                      <div style="display:flex; gap:12px; align-items:center;">
+                        <div style="text-align:center; padding:8px 12px; background:var(--primary); color:white; border-radius:6px; font-weight:600;">
+                          {{ viewedSessions.length }} sessions
+                        </div>
+                        <button class="submit-button" (click)="collapseSessions()" type="button" style="font-size:0.85rem; padding:8px 16px;">Close</button>
                       </div>
                     </div>
-                    <div *ngIf="viewedSessions.length === 0" class="input-hint" style="margin-top:8px">No sessions for this user.</div>
-                    <ul style="list-style:none; padding:0; margin-top:8px;">
-                      <li *ngFor="let s of viewedSessions" style="margin-bottom:8px; padding:8px; background:white; border-radius:6px; border:1px solid #ddd;">
-                        <!-- Header / Summary Row (always visible) -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                          <div style="flex:1; cursor:pointer;" (click)="toggleSessionExpand(s.id)">
-                            <strong>Week {{ s.week }} • Session {{ s.sessionNumber || s.session }} • Set {{ s.setNumber || s.set }}</strong>
-                            <div class="input-hint">Intensity: {{ s.intensity }} • Heart Rate: {{ s.heartRate }} bpm</div>
-                            <div class="input-hint">Saved: {{ s.createdAt | date:'short' }}</div>
-                          </div>
-                          <button class="submit-button" (click)="toggleSessionExpand(s.id)" type="button" style="font-size:0.85rem; white-space:nowrap;">{{ expandedSessionId === s.id ? '▼' : '▶' }}</button>
+                    
+                    <!-- Loading state -->
+                    <div *ngIf="loadingSessionId" style="margin-top:16px; padding:12px; background:#e3f2fd; border-radius:6px; color:#0277bd; font-weight:500; display:flex; align-items:center; gap:8px;">
+                      <span style="font-size:1.2rem;">⏳</span> Loading sessions...
+                    </div>
+                    
+                    <!-- Empty state -->
+                    <div *ngIf="viewedSessions.length === 0 && !loadingSessionId" style="margin-top:16px; padding:12px 16px; background:#fff3cd; border-radius:6px; border-left:4px solid #ffc107; color:#856404;">
+                      <strong>ℹ️ No sessions yet</strong>
+                      <div style="font-size:0.9rem; margin-top:4px;">This user hasn't recorded any training sessions yet.</div>
+                    </div>
+                    
+                    <!-- Sessions grouped by Week • Session -->
+                    <div *ngIf="viewedSessions.length > 0" style="margin-top:16px; display:flex; flex-direction:column; gap:14px;">
+                      <div *ngFor="let groupKey of getGroupedSessionKeys()" style="background:white; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.08); border:1px solid #e0e0e0;">
+                        
+                        <!-- Group Header (Week • Session) - Clickable -->
+                        <div (click)="expandedSessionId = expandedSessionId === groupKey ? null : groupKey" style="padding:14px 16px; background:linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%); color:white; font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:pointer; transition:all 0.3s ease;" onmouseover="this.style.background='linear-gradient(90deg, var(--primary-dark) 0%, var(--primary) 100%)'" onmouseout="this.style.background='linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%)'">
+                          <span style="font-size:1.1rem;">📊 {{ getGroupLabel(groupKey) }}</span>
+                          <span style="font-size:0.95rem; display:flex; align-items:center; gap:8px;">
+                            {{ viewedSessionsGrouped[groupKey].length }} set<span *ngIf="viewedSessionsGrouped[groupKey].length > 1">s</span>
+                            <span style="font-size:1.2rem;">{{ expandedSessionId === groupKey ? '▼' : '▶' }}</span>
+                          </span>
                         </div>
                         
-                        <!-- Expanded Details (Edit/Delete/Notes) -->
-                        <div *ngIf="expandedSessionId === s.id" style="margin-top:12px; padding-top:12px; border-top:1px solid #eee;">
-                          <!-- Display mode -->
-                          <div *ngIf="editingSessionId !== s.id">
-                            <div style="margin-bottom:12px;">
-                              <strong style="font-size:0.9rem;">Actions:</strong>
-                              <div style="display:flex; gap:6px; margin-top:6px;">
-                                <button class="submit-button" (click)="startEditSession(s)" type="button" style="font-size:0.85rem;" [disabled]="loadingSessionId === s.id || savingSessionId === s.id || deletingSessionId === s.id">
-                                  <span *ngIf="loadingSessionId === s.id || savingSessionId === s.id" class="spinner" aria-hidden="true"></span>
-                                  <span *ngIf="loadingSessionId !== s.id && savingSessionId !== s.id">Edit</span>
+                        <!-- Sets within this Session (collapsible) -->
+                        <div *ngIf="expandedSessionId === groupKey" style="padding:14px 16px; background:#fafafa; display:flex; flex-direction:column; gap:12px; border-top:1px solid #e0e0e0;">
+                          <div *ngFor="let session of viewedSessionsGrouped[groupKey]; let i = index" style="padding:14px; background:white; border-radius:6px; border-left:5px solid var(--primary); box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+                            
+                            <!-- Set Number & Metrics Grid -->
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                              <div style="flex:1;">
+                                <!-- Set Badge -->
+                                <div style="display:inline-block; background:var(--primary); color:white; padding:6px 12px; border-radius:20px; font-weight:600; font-size:1rem; margin-bottom:12px;">
+                                  🎯 Set {{ session.setNumber || session.set }}
+                                </div>
+                                
+                                <!-- Metrics -->
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px;">
+                                  <div style="padding:12px; background:#f5f5f5; border-radius:6px; border-left:3px solid #4CAF50;">
+                                    <div style="font-size:0.75rem; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">💪 Intensity (RPE)</div>
+                                    <div style="font-size:1.8rem; font-weight:700; color:#4CAF50; margin-top:4px;">{{ session.intensity }}</div>
+                                  </div>
+                                  <div style="padding:12px; background:#f5f5f5; border-radius:6px; border-left:3px solid #FF5252;">
+                                    <div style="font-size:0.75rem; color:#666; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">❤️ Heart Rate</div>
+                                    <div style="font-size:1.8rem; font-weight:700; color:#FF5252; margin-top:4px;">{{ session.heartRate }} <span style="font-size:1rem;">bpm</span></div>
+                                  </div>
+                                </div>
+                                
+                                <!-- Timestamp -->
+                                <div style="font-size:0.85rem; color:#999;">
+                                  📅 {{ session.createdAt | date:'MMM d, y •h:mm a' }}
+                                </div>
+                                
+                                <!-- Notes (if exist) -->
+                                <div *ngIf="session.notes" style="margin-top:12px; padding:10px 12px; background:#fffbea; border-radius:6px; border-left:3px solid #FFC107; font-size:0.9rem; color:#666;">
+                                  <strong>📝 Notes:</strong> {{ session.notes }}
+                                </div>
+                              </div>
+                              
+                              <!-- Action Buttons -->
+                              <div style="display:flex; flex-direction:column; gap:6px; white-space:nowrap;">
+                                <button class="submit-button" (click)="startEditSession(session)" type="button" style="font-size:0.8rem; padding:8px 12px; background:var(--primary);" [disabled]="editingSessionId === session.id">
+                                  ✏️ Edit
                                 </button>
-                                <button class="submit-button" (click)="deleteSessionForUser(s.id)" type="button" style="font-size:0.85rem; background:#f8d7da; color:#6b0000;" [disabled]="loadingSessionId === s.id || editingSessionId === s.id || savingSessionId === s.id || deletingSessionId === s.id">Delete</button>
+                                <button class="submit-button" (click)="deleteSessionForUser(session.id)" type="button" style="font-size:0.8rem; padding:8px 12px; background:#FF5252; color:white;">
+                                  🗑️ Delete
+                                </button>
                               </div>
                             </div>
-                          </div>
-                          <!-- Edit mode -->
-                          <div *ngIf="editingSessionId === s.id">
-                            <strong style="display:block; margin-bottom:8px; font-size:0.9rem;">Edit Session</strong>
-                            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
-                              <div style="flex:1; min-width:100px;">
-                                <label style="display:block; font-size:0.8rem; margin-bottom:3px;">Intensity</label>
-                                <input type="number" [(ngModel)]="editedSession.intensity" min="1" max="20" style="width:100%; padding:4px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;" />
+                            
+                            <!-- Edit Mode (inline) -->
+                            <div *ngIf="editingSessionId === session.id" style="margin-top:12px; padding-top:12px; border-top:1px solid #eee;">
+                              <strong style="display:block; margin-bottom:10px; color:var(--primary);">✏️ Edit Session</strong>
+                              <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:10px;">
+                                <div>
+                                  <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px; color:#666;">Intensity</label>
+                                  <input type="number" [(ngModel)]="editedSession.intensity" min="1" max="20" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-weight:600;" />
+                                </div>
+                                <div>
+                                  <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px; color:#666;">Heart Rate</label>
+                                  <input type="number" [(ngModel)]="editedSession.heartRate" min="30" max="220" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; font-weight:600;" />
+                                </div>
+                                <div>
+                                  <label style="display:block; font-size:0.8rem; font-weight:600; margin-bottom:4px; color:#666;">Notes</label>
+                                  <input type="text" [(ngModel)]="editedSession.notes" placeholder="Add notes..." style="width:100%; padding:8px; border:1px solid #ddd; border-radius:4px;" />
+                                </div>
                               </div>
-                              <div style="flex:1; min-width:100px;">
-                                <label style="display:block; font-size:0.8rem; margin-bottom:3px;">Heart Rate</label>
-                                <input type="number" [(ngModel)]="editedSession.heartRate" min="30" max="220" style="width:100%; padding:4px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;" />
+                              <div style="display:flex; gap:6px;">
+                                <button class="submit-button" (click)="saveEditedSession(session.id)" type="button" style="font-size:0.85rem; padding:8px 16px; background:#4CAF50;">
+                                  💾 Save
+                                </button>
+                                <button class="submit-button" (click)="cancelEditSession()" type="button" style="font-size:0.85rem; padding:8px 16px; background:#999;">
+                                  ✖️ Cancel
+                                </button>
                               </div>
-                              <div style="flex:1; min-width:120px;">
-                                <label style="display:block; font-size:0.8rem; margin-bottom:3px;">Notes</label>
-                                <input type="text" [(ngModel)]="editedSession.notes" placeholder="Notes" style="width:100%; padding:4px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;" />
-                              </div>
-                            </div>
-                            <div style="display:flex; gap:6px;">
-                              <button class="submit-button" (click)="saveEditedSession(s.id)" type="button" style="font-size:0.85rem;" [disabled]="savingSessionId === s.id">
-                                <span *ngIf="savingSessionId === s.id" class="spinner" aria-hidden="true"></span>
-                                <span *ngIf="savingSessionId !== s.id">Save</span>
-                              </button>
-                              <button class="submit-button" (click)="cancelEditSession()" type="button" style="font-size:0.85rem; background:#bbb;">Cancel</button>
                             </div>
                           </div>
                         </div>
-                      </li>
-                    </ul>
-                    <div style="margin-top:8px; display:flex; gap:8px;">
-                      <button class="submit-button" (click)="toggleNewSessionForm()" type="button">{{ showNewSessionForm ? 'Cancel' : 'Add Session' }}</button>
-                    </div>
-                    <div *ngIf="showNewSessionForm" style="margin-top:8px; padding:8px; border-radius:6px; background:#fafafa; border:1px solid #eee;">
-                      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                        <input type="number" [(ngModel)]="newSession.week" min="1" placeholder="Week" style="width:80px; padding:6px;" />
-                        <input type="number" [(ngModel)]="newSession.sessionNumber" min="1" placeholder="Session" style="width:80px; padding:6px;" />
-                        <input type="number" [(ngModel)]="newSession.setNumber" min="1" placeholder="Set" style="width:80px; padding:6px;" />
-                        <input type="number" [(ngModel)]="newSession.intensity" min="1" max="20" placeholder="Intensity" style="width:100px; padding:6px;" />
-                        <input type="number" [(ngModel)]="newSession.heartRate" min="30" max="220" placeholder="HR" style="width:100px; padding:6px;" />
-                        <input type="text" [(ngModel)]="newSession.notes" placeholder="Notes" style="flex:1; padding:6px;" />
-                        <button class="submit-button" (click)="createSessionForUser()" type="button" [disabled]="savingSessionId === 'new'"> <span *ngIf="savingSessionId === 'new'" class="spinner"></span> Create</button>
                       </div>
                     </div>
                   </div>
@@ -599,7 +653,7 @@
         <div class="form-group">
           <label for="session">Select Session</label>
           <select id="session" name="session" [(ngModel)]="selectedSession" (change)="onSessionChange()">
-            <option *ngFor="let s of getSetRange(getSessionsForWeek(selectedWeek))" [ngValue]="s">Session {{ s }}</option>
+            <option *ngFor="let s of getSessionRange()" [ngValue]="s">Session {{ s }}</option>
           </select>
           <div class="input-hint">Sessions this week: {{ getSessionsForWeek(selectedWeek) }}</div>
         </div>
@@ -607,7 +661,7 @@
         <div class="form-group">
           <label for="set">Select Set</label>
           <select id="set" name="set" [(ngModel)]="selectedSet">
-            <option *ngFor="let s of getSetRange(getSetsForWeek(selectedWeek))" [ngValue]="s" [disabled]="isSetSubmitted(selectedWeek, s, selectedSession)">Set {{ s }} <span *ngIf="isSetSubmitted(selectedWeek, s, selectedSession)">— Saved</span></option>
+            <option *ngFor="let s of getFixedSetRange()" [ngValue]="s" [disabled]="isSetSubmitted(selectedWeek, s, selectedSession)">Set {{ s }} <span *ngIf="isSetSubmitted(selectedWeek, s, selectedSession)">— Saved</span></option>
           </select>
           <div class="input-hint">Sets per session: {{ getSetsForWeek(selectedWeek) }}</div>
         </div>
@@ -639,8 +693,19 @@
       </div>
 
       <div style="display:flex; gap:8px;">
-        <button class="submit-button" (click)="saveSession()" type="button" [disabled]="isSetSubmitted(selectedWeek, selectedSet, selectedSession)">Save Session</button>
+        <button class="submit-button" (click)="saveSession()" type="button" 
+          [disabled]="!hasValidatedHeartRate || hasCriticalHeartRateWarning || isSetSubmitted(selectedWeek, selectedSet, selectedSession)"
+          [title]="!hasValidatedHeartRate ? 'Click Quick Validate first' : 'Save your session'">
+          Save Session
+        </button>
         <button class="submit-button" (click)="onSubmit()" type="button">Quick Validate</button>
+      </div>
+      <div style="margin-top:8px; padding:8px; background:#f0f0f0; border-radius:6px; border-left:4px solid var(--primary);">
+        <div class="input-hint" style="margin:0;">
+          <span *ngIf="!hasValidatedHeartRate">⚠️ Click "Quick Validate" first to enable the Save button</span>
+          <span *ngIf="hasValidatedHeartRate && !hasCriticalHeartRateWarning">✅ Heart rate validated - Save button is enabled</span>
+          <span *ngIf="hasCriticalHeartRateWarning">🛑 Critical heart rate detected - please input safe values</span>
+        </div>
       </div>
       <div style="margin-top:12px; display:flex; gap:8px; align-items:center;">
         <label style="display:flex; align-items:center; gap:8px;">
@@ -689,8 +754,11 @@
           <div style="margin-top:24px;">
               <!-- User's Sessions -->
               <div *ngIf="sessionsOwner">
-                <h3>Sessions for {{ sessionsOwner }}</h3>
-                <div *ngIf="viewedSessions.length === 0" class="input-hint">No sessions for this user.</div>
+                <h3>📋 Sessions for {{ sessionsOwnerEmail }}</h3>
+                <div *ngIf="loadingSessionId" class="input-hint">⏳ Loading sessions...</div>
+                <div *ngIf="viewedSessions.length === 0 && !loadingSessionId" class="input-hint" style="background:#fff3cd; padding:8px; border-radius:4px;">
+                  ℹ️ No sessions for this user.
+                </div>
                 <ul style="list-style:none; padding:0;">
                   <li *ngFor="let s of viewedSessions" style="margin-bottom:8px; padding:8px; background:white; border-radius:6px; border:1px solid #ddd;">
                     <strong>Week {{ s.week }} • Session {{ s.sessionNumber || s.session }} • Set {{ s.setNumber || s.set }}</strong>
